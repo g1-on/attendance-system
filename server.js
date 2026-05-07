@@ -75,9 +75,21 @@ app.put('/api/employees/:id/face', async (req, res) => {
 
 app.put('/api/employees/:id', async (req, res) => {
   const { id } = req.params;
-  const { status } = req.body;
+  const { firstName, lastName, department, designation, basicSalary, joinDate, email, phone, status } = req.body;
   try {
-    await db.query('UPDATE employees SET status = $1 WHERE id = $2', [status, id]);
+    await db.query(`
+      UPDATE employees 
+      SET firstname = COALESCE($1, firstname), 
+          lastname = COALESCE($2, lastname), 
+          department = COALESCE($3, department), 
+          designation = COALESCE($4, designation), 
+          basicsalary = COALESCE($5, basicsalary), 
+          joindate = COALESCE($6, joindate), 
+          email = COALESCE($7, email), 
+          phone = COALESCE($8, phone), 
+          status = COALESCE($9, status)
+      WHERE id = $10
+    `, [firstName, lastName, department, designation, basicSalary, joinDate, email, phone, status, id]);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
