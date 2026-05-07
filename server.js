@@ -48,7 +48,7 @@ app.post('/api/employees', async (req, res) => {
   const { id, firstName, lastName, department, designation, basicSalary, joinDate, email, phone, status, password, role } = req.body;
   try {
     await db.query(`
-      INSERT INTO employees (id, firstName, lastName, department, designation, basicSalary, joinDate, email, phone, status, password, role)
+      INSERT INTO employees (id, firstname, lastname, department, designation, basicsalary, joindate, email, phone, status, password, role)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
     `, [id, firstName, lastName, department, designation, basicSalary, joinDate, email, phone, status, password || '123456', role || 'employee']);
     res.json({ success: true });
@@ -92,10 +92,10 @@ app.post('/api/attendance', async (req, res) => {
   const { empId, date, status, checkIn, checkOut, ot } = req.body;
   try {
     await db.query(`
-      INSERT INTO attendance ("empId", date, status, "checkIn", "checkOut", ot)
+      INSERT INTO attendance (empid, date, status, checkin, checkout, ot)
       VALUES ($1, $2, $3, $4, $5, $6)
-      ON CONFLICT ("empId", date) DO UPDATE 
-      SET status = EXCLUDED.status, "checkIn" = EXCLUDED."checkIn", "checkOut" = EXCLUDED."checkOut", ot = EXCLUDED.ot
+      ON CONFLICT (empid, date) DO UPDATE 
+      SET status = EXCLUDED.status, checkin = EXCLUDED.checkin, checkout = EXCLUDED.checkout, ot = EXCLUDED.ot
     `, [empId, date, status, checkIn, checkOut, ot]);
     res.json({ success: true });
   } catch (err) {
@@ -117,7 +117,7 @@ app.post('/api/leave-requests', async (req, res) => {
   const { id, empId, type, from, to, days, reason, applied, status } = req.body;
   try {
     await db.query(`
-      INSERT INTO leave_requests (id, "empId", type, "from", "to", days, reason, applied, status)
+      INSERT INTO leave_requests (id, empid, type, "from", "to", days, reason, applied, status)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
     `, [id, empId, type, from, to, days, reason, applied, status]);
     res.json({ success: true });
@@ -151,7 +151,7 @@ app.post('/api/advances', async (req, res) => {
   const { id, empId, month, amount, date, reason, status } = req.body;
   try {
     await db.query(`
-      INSERT INTO advances (id, "empId", month, amount, date, reason, status)
+      INSERT INTO advances (id, empid, month, amount, date, reason, status)
       VALUES ($1, $2, $3, $4, $5, $6, $7)
     `, [id, empId, month, amount, date, reason, status]);
     res.json({ success: true });
@@ -174,7 +174,7 @@ app.post('/api/expenses', async (req, res) => {
   const { id, empId, month, amount, date, reason, status } = req.body;
   try {
     await db.query(`
-      INSERT INTO expenses (id, "empId", month, amount, date, reason, status)
+      INSERT INTO expenses (id, empid, month, amount, date, reason, status)
       VALUES ($1, $2, $3, $4, $5, $6, $7)
     `, [id, empId, month, amount, date, reason, status]);
     res.json({ success: true });
@@ -197,10 +197,10 @@ app.post('/api/payroll', async (req, res) => {
   const { empId, month, basic, gross, advance, expense, totalDeductions, net, paymentStatus } = req.body;
   try {
     await db.query(`
-      INSERT INTO payroll ("empId", month, basic, gross, advance, expense, "totalDeductions", net, "paymentStatus")
+      INSERT INTO payroll (empid, month, basic, gross, advance, expense, totaldeductions, net, paymentstatus)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-      ON CONFLICT ("empId", month) DO UPDATE 
-      SET basic = EXCLUDED.basic, gross = EXCLUDED.gross, advance = EXCLUDED.advance, expense = EXCLUDED.expense, "totalDeductions" = EXCLUDED."totalDeductions", net = EXCLUDED.net, "paymentStatus" = EXCLUDED."paymentStatus"
+      ON CONFLICT (empid, month) DO UPDATE 
+      SET basic = EXCLUDED.basic, gross = EXCLUDED.gross, advance = EXCLUDED.advance, expense = EXCLUDED.expense, totaldeductions = EXCLUDED.totaldeductions, net = EXCLUDED.net, paymentstatus = EXCLUDED.paymentstatus
     `, [empId, month, basic, gross, advance, expense, totalDeductions, net, paymentStatus]);
     res.json({ success: true });
   } catch (err) {
