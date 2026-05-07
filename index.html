@@ -588,7 +588,20 @@
       const grouped = filteredEmployeesList.map(e => { const rows = monthRows.filter(r => r.empId === e.id); const s = attendanceSummary(rows); return { e, ...s }; });
       const totals = attendanceSummary(monthRows);
       qs("attendanceStats").innerHTML = [["Working Days", totals.working, "accent"], ["Avg Present", grouped.length ? (grouped.reduce((s, g) => s + g.present, 0) / grouped.length).toFixed(1) : 0, "good"], ["Avg Absent", grouped.length ? (grouped.reduce((s, g) => s + g.absent, 0) / grouped.length).toFixed(1) : 0, "bad"], ["Avg Late", grouped.length ? (grouped.reduce((s, g) => s + g.late, 0) / grouped.length).toFixed(1) : 0, "warn"]].map(x => `<div class="card"><h4>${x[0]}</h4><div class="stat-value ${x[2]}">${x[1]}</div></div>`).join("");
-      qs("attendanceRegisterTable").innerHTML = `<thead><tr><th>Employee</th><th>Dept</th><th>Present</th><th>Absent</th><th>Leave</th><th>Late</th><th>OT Hours</th><th>Attendance %</th></tr></thead><tbody>${grouped.map(g => `<tr><td>${fullName(g.e)}</td><td>${g.e.department}</td><td>${g.present}</td><td>${g.absent}</td><td>${g.leave}</td><td>${g.late}</td><td>${g.ot.toFixed(1)}</td><td>${g.percent}%</td></tr>`).join("")}</tbody>`;
+      qs("attendanceRegisterTable").innerHTML = `<thead><tr><th>Employee</th><th>Dept</th><th>Face Proof</th><th>Present</th><th>Absent</th><th>Leave</th><th>Late</th><th>OT Hours</th><th>Attendance %</th></tr></thead><tbody>${grouped.map(g => {
+        const lastAtt = monthRows.filter(r => r.empId === g.e.id).sort((a,b) => b.date.localeCompare(a.date))[0];
+        return `<tr>
+          <td>${fullName(g.e)}</td>
+          <td>${g.e.department}</td>
+          <td>${lastAtt && lastAtt.image ? `<img src="${lastAtt.image}" style="width:40px; height:40px; border-radius:4px; object-fit:cover;">` : '-'}</td>
+          <td>${g.present}</td>
+          <td>${g.absent}</td>
+          <td>${g.leave}</td>
+          <td>${g.late}</td>
+          <td>${g.ot.toFixed(1)}</td>
+          <td>${g.percent}%</td>
+        </tr>`;
+      }).join("")}</tbody>`;
       
       const [year, monthNum] = month.split("-").map(Number);
       const firstDay = new Date(year, monthNum - 1, 1).getDay();
@@ -1000,7 +1013,14 @@
                       if (bestMatch.label !== 'unknown') {
                         const emp = getEmployeeById(bestMatch.label);
                         qs("faceStatus").innerHTML = `<span style="color: #22c55e; font-weight: bold;">WELCOME, ${fullName(emp).toUpperCase()}!</span>`;
-                        await markAttendanceInstant(emp.id);
+                        
+                        // CAPTURE PROOF PHOTO
+                        const tempCanvas = document.createElement('canvas');
+                        tempCanvas.width = 150; tempCanvas.height = 150;
+                        tempCanvas.getContext('2d').drawImage(video, 0, 0, 150, 150);
+                        const proofImg = tempCanvas.toDataURL('image/jpeg', 0.6);
+                        
+                        await markAttendanceInstant(emp.id, proofImg);
                         setTimeout(() => stopFaceRecognition(), 2000);
                         alert(`Attendance marked for ${fullName(emp)}`);
                       } else {
@@ -1097,8 +1117,8 @@
       }
     }
 
-    async function markAttendanceInstant(empId) {
-      const att = { empId, date: today, status: "Present", checkIn: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }), checkOut: "-", ot: 0 };
+    async function markAttendanceInstant(empId, imageData = null) {
+      const att = { empId, date: today, status: "Present", checkIn: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }), checkOut: "-", ot: 0, image: imageData };
       await saveData('/attendance', att);
       await loadData();
     }
