@@ -1,0 +1,14 @@
+{
+  "appId": "com.attendance.app",
+  "appName": "Attendance",
+  "webDir": "www",
+  "bundledWebRuntime": false,
+  "server": {
+    "cleartext": true
+  },
+  "plugins": {
+    "CapacitorHttp": {
+      "enabled": true
+    }
+  }
+}
