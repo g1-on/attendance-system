@@ -653,13 +653,29 @@
       qs("calendarHeatmap").innerHTML = heatmapHtml;
     }
     async function markAttendance() {
-      const empId = qs("markEmployee").value, date = qs("markDate").value, status = qs("markStatus").value;
-      if (!empId || !date) return alert("Employee and date are required.");
-      const attRecord = { empId, date, status, checkIn: qs("markIn").value || "-", checkOut: qs("markOut").value || "-", ot: Number(qs("markOt").value || 0) };
+      const selection = qs("markEmployee").value, date = qs("markDate").value, status = qs("markStatus").value;
+      if (!selection || !date) return alert("Employee and date are required.");
       
-      await saveData('/attendance', attRecord);
+      const inTime = qs("markIn").value || "-";
+      const outTime = qs("markOut").value || "-";
+      const ot = Number(qs("markOt").value || 0);
+
+      if (selection === "ALL") {
+        if (!confirm(`Mark ALL employees as ${status} for ${date}?`)) return;
+        qs("markAttBtn").disabled = true;
+        qs("markAttBtn").innerHTML = "Saving...";
+        
+        for (const e of employees) {
+          await saveData('/attendance', { empId: e.id, date, status, checkIn: inTime, checkOut: outTime, ot });
+        }
+        
+        qs("markAttBtn").disabled = false;
+        qs("markAttBtn").innerHTML = "Mark Attendance";
+      } else {
+        await saveData('/attendance', { empId: selection, date, status, checkIn: inTime, checkOut: outTime, ot });
+      }
+
       closeModal("attendanceModal");
-      
       setTimeout(async () => {
         await loadData();
       }, 100);
@@ -861,7 +877,7 @@
       const empOptions = (isEmp ? "" : `<option value="">All Employees</option>`) + filteredEmployees.map(e => `<option value="${e.id}">${fullName(e)}</option>`).join("");
       qs("attEmployeeFilter").innerHTML = empOptions;
       
-      const markOpts = filteredEmployees.map(e => `<option value="${e.id}">${fullName(e)}</option>`).join("");
+      const markOpts = (isEmp ? "" : `<option value="ALL">All Employees</option>`) + filteredEmployees.map(e => `<option value="${e.id}">${fullName(e)}</option>`).join("");
       qs("markEmployee").innerHTML = markOpts; 
       qs("leaveEmployee").innerHTML = markOpts; 
       
