@@ -952,20 +952,28 @@
       if (stream) stopFaceRecognition();
 
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
+        const constraints = { 
+          video: { 
+            width: { ideal: 640 }, 
+            height: { ideal: 480 },
+            facingMode: "user"
+          } 
+        };
+        
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
         const video = qs("faceVideo");
         video.srcObject = stream;
         
         video.onloadedmetadata = () => {
-          video.play();
-          setTimeout(() => {
+          video.play().then(() => {
+            console.log("Video playing, initializing canvas...");
             const canvas = qs("faceCanvas");
             const displaySize = { width: video.offsetWidth, height: video.offsetHeight };
             faceapi.matchDimensions(canvas, displaySize);
             
             let greenBoxCount = 0;
             detectInterval = setInterval(async () => {
-              if (video.paused || video.ended) return;
+              if (video.paused || video.ended || !stream) return;
               try {
                 const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 })).withFaceLandmarks().withFaceDescriptors();
                 const resizedDetections = faceapi.resizeResults(detections, displaySize);
@@ -977,14 +985,13 @@
                   const box = det.box;
                   const centerX = box.x + box.width / 2;
                   const centerY = box.y + box.height / 2;
-                  const isCentered = centerX > displaySize.width * 0.3 && centerX < displaySize.width * 0.7 && centerY > displaySize.height * 0.3 && centerY < displaySize.height * 0.7;
-                  const isGoodSize = box.width > displaySize.width * 0.3;
                   
+                  const isCentered = centerX > displaySize.width * 0.25 && centerX < displaySize.width * 0.75 && centerY > displaySize.height * 0.25 && centerY < displaySize.height * 0.75;
+                  const isGoodSize = box.width > displaySize.width * 0.25;
                   const isIdeal = isCentered && isGoodSize;
-                  const color = isIdeal ? '#22c55e' : '#ef4444';
                   
-                  ctx.strokeStyle = color;
-                  ctx.lineWidth = 4;
+                  ctx.strokeStyle = isIdeal ? '#22c55e' : '#ef4444';
+                  ctx.lineWidth = 3;
                   ctx.strokeRect(box.x, box.y, box.width, box.height);
 
                   if (mode === 'attendance') {
@@ -992,42 +999,46 @@
                       const bestMatch = faceMatcher.findBestMatch(detections[0].descriptor);
                       if (bestMatch.label !== 'unknown') {
                         const emp = getEmployeeById(bestMatch.label);
-                        qs("faceStatus").innerHTML = `<span style="color: #10b981">Recognized: ${fullName(emp)}</span>`;
+                        qs("faceStatus").innerHTML = `<span style="color: #22c55e; font-weight: bold;">WELCOME, ${fullName(emp).toUpperCase()}!</span>`;
                         await markAttendanceInstant(emp.id);
-                        stopFaceRecognition();
+                        setTimeout(() => stopFaceRecognition(), 2000);
                         alert(`Attendance marked for ${fullName(emp)}`);
                       } else {
-                        qs("faceStatus").innerHTML = "Searching... (No match found)";
+                        qs("faceStatus").innerHTML = "Face not recognized. Please enroll first.";
                       }
                     } else {
-                      qs("faceStatus").innerHTML = "No faces enrolled yet!";
+                      qs("faceStatus").innerHTML = "Initializing AI Matcher...";
+                      updateLabeledDescriptors();
                     }
                   } else if (mode === 'enroll') {
                     if (isIdeal) {
                       greenBoxCount++;
-                      qs("faceStatus").innerHTML = `<span style='color:#22c55e'>PERFECT! Hold still... (${3 - Math.floor(greenBoxCount/2)})</span>`;
+                      qs("faceStatus").innerHTML = `<span style='color:#22c55e'>PERFECT! HOLD STILL... ${3 - Math.floor(greenBoxCount/2)}</span>`;
                       if (greenBoxCount > 6) {
-                        qs("faceStatus").innerHTML = "CAPTURING...";
+                        qs("faceStatus").innerHTML = "SAVING FACE...";
                         greenBoxCount = 0;
                         await captureFace(false);
                       }
                     } else {
                       greenBoxCount = 0;
-                      qs("faceStatus").innerHTML = "<span style='color:#ef4444'>Position your face in the RED box</span>";
+                      qs("faceStatus").innerHTML = "<span style='color:#ef4444'>CENTER YOUR FACE</span>";
                     }
                   }
                 } else {
                   greenBoxCount = 0;
-                  qs("faceStatus").innerHTML = "Looking for face...";
+                  qs("faceStatus").innerHTML = "Position face in camera...";
                 }
               } catch (err) {
-                console.warn("Detection loop error:", err);
+                console.warn("AI Loop Error:", err);
               }
             }, 500);
-          }, 1000);
+          }).catch(e => {
+            qs("faceStatus").innerHTML = "Video play error: " + e.message;
+          });
         };
       } catch (e) {
         qs("faceStatus").innerHTML = "Camera error: " + e.message;
+        console.error("Camera Error:", e);
       }
     }
 
