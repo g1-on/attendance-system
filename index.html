@@ -390,16 +390,18 @@
           payRes.json()
         ]);
 
-        employees = empData.filter(e => e.status !== 'Archived');
-        archivedEmployees = empData.filter(e => e.status === 'Archived');
-        attendance = attData;
-        leaveRequests = leaveData;
-        advances = advData;
-        expenses = expData;
+        employees = empData.map(e => ({ ...e, id: e.id, firstName: e.firstname || e.firstName, lastName: e.lastname || e.lastName, department: e.department, designation: e.designation, basicSalary: Number(e.basicsalary || e.basicSalary || 0), joinDate: e.joindate || e.joinDate, email: e.email, phone: e.phone, status: e.status, password: e.password, role: e.role })).filter(e => e.status !== 'Archived');
+        archivedEmployees = empData.map(e => ({ ...e, id: e.id, firstName: e.firstname || e.firstName, lastName: e.lastname || e.lastName, department: e.department, designation: e.designation, basicSalary: Number(e.basicsalary || e.basicSalary || 0), joinDate: e.joindate || e.joinDate, email: e.email, phone: e.phone, status: e.status, password: e.password, role: e.role })).filter(e => e.status === 'Archived');
+        
+        attendance = attData.map(a => ({ ...a, empId: a.empid || a.empId, date: a.date, status: a.status, checkIn: a.checkin || a.checkIn, checkOut: a.checkout || a.checkOut, ot: a.ot }));
+        leaveRequests = leaveData.map(l => ({ ...l, empId: l.empid || l.empId, type: l.type, from: l.from, to: l.to, days: l.days, reason: l.reason, applied: l.applied, status: l.status }));
+        advances = advData.map(a => ({ ...a, empId: a.empid || a.empId, month: a.month, amount: a.amount, date: a.date, reason: a.reason, status: a.status }));
+        expenses = expData.map(e => ({ ...e, empId: e.empid || e.empId, month: e.month, amount: e.amount, date: e.date, reason: e.reason, status: e.status }));
         
         payroll = {};
         payData.forEach(p => {
-          payroll[p.empId] = p;
+          const empId = p.empid || p.empId;
+          payroll[empId] = { ...p, empId, basic: p.basic, gross: p.gross, advance: p.advance, expense: p.expense, totalDeductions: p.totaldeductions || p.totalDeductions, net: p.net, paymentStatus: p.paymentstatus || p.paymentStatus };
         });
 
         populateDropdowns();
@@ -410,7 +412,7 @@
       }
     }
     const qs = (id) => document.getElementById(id);
-    const fullName = (e) => (e ? `${e.firstName} ${e.lastName}` : "");
+    const fullName = (e) => (e ? `${e.firstName || e.firstname || ''} ${e.lastName || e.lastname || ''}` : "");
     const statusClass = (s) => s.toLowerCase().replace(/\s+/g, "-");
     const uniqueDepartments = () => [...new Set(employees.map(e => e.department))];
     function getEmployeeById(empId) {
