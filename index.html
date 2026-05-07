@@ -296,10 +296,13 @@
         });
         const data = await res.json();
         if (data.success) {
-          currentUser = data.user;
-          localStorage.setItem('currentUser', JSON.stringify(currentUser));
-          initApp();
-        } else {
+        // Normalize user data for Postgres
+        const u = data.user;
+        currentUser = { ...u, id: u.id, firstName: u.firstname || u.firstName, lastName: u.lastname || u.lastName, department: u.department, designation: u.designation, basicSalary: Number(u.basicsalary || u.basicSalary || 0), joinDate: u.joindate || u.joinDate, email: u.email, phone: u.phone, status: u.status, role: u.role };
+        
+        localStorage.setItem('currentUser', JSON.stringify(currentUser));
+        initApp();
+      } else {
           qs('loginError').textContent = data.message;
         }
       } catch (e) {
@@ -321,6 +324,10 @@
       qs('loginScreen').style.display = "none";
       qs('appContent').style.display = "grid";
       
+      // Ensure currentUser is normalized if loaded from storage
+      const u = currentUser;
+      currentUser = { ...u, id: u.id, firstName: u.firstname || u.firstName, lastName: u.lastname || u.lastName, department: u.department, designation: u.designation, basicSalary: Number(u.basicsalary || u.basicSalary || 0), joinDate: u.joindate || u.joinDate, email: u.email, phone: u.phone, status: u.status, role: u.role };
+
       qs('userProfile').innerHTML = `<p><strong>${fullName(currentUser)}</strong></p><p class="muted">${currentUser.role.toUpperCase()}</p>`;
       
       // Role based menu
