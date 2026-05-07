@@ -305,52 +305,55 @@
     }
 
     let currentUser = null;
-    let employees = [];
-    let attendance = [];
-    let leaveRequests = [];
+    let employees = [], archivedEmployees = [], attendance = [], leaveRequests = [], advances = [], expenses = [], payroll = {}, archivedEmployeesList = [];
     let leaveBalances = { Annual: 12, Sick: 8, Casual: 6, "Comp-Off": 3 };
-    let advances = [];
-    let expenses = [];
-    let archivedEmployees = [];
-    let archivedPayroll = {};
-    let payroll = {};
+    let labeledDescriptors = [];
+    let faceMatcher = null;
+    let scanningMode = 'attendance'; // 'attendance' or 'enroll'
+    let enrollmentEmpId = null;
 
     async function login() {
       const id = qs('loginId').value;
-      const password = qs('loginPassword').value;
+      const password = qs('loginPass').value;
+      qs('loginError').textContent = "";
       try {
         const res = await fetch(`${API_URL}/login`, {
           method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'ngrok-skip-browser-warning': 'true'
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id, password })
         });
         const data = await res.json();
         if (data.success) {
-        // Normalize user data for Postgres
-        const u = data.user;
-        currentUser = { ...u, id: u.id, firstName: u.firstname || u.firstName, lastName: u.lastname || u.lastName, department: u.department, designation: u.designation, basicSalary: Number(u.basicsalary || u.basicSalary || 0), joinDate: u.joindate || u.joinDate, email: u.email, phone: u.phone, status: u.status, role: u.role };
-        
-        localStorage.setItem('currentUser', JSON.stringify(currentUser));
-        initApp();
-      } else {
+          localStorage.setItem('currentUser', JSON.stringify(data.user));
+          location.reload();
+        } else {
           qs('loginError').textContent = data.message;
         }
       } catch (e) {
         qs('loginError').textContent = "Connection error: " + e.message;
       }
+    }
+
     function logout() {
       localStorage.removeItem('currentUser');
       location.reload();
     }
 
-    let employees = [], archivedEmployees = [], attendance = [], leaveRequests = [], advances = [], expenses = [], payroll = {}, currentUser = null;
-    let labeledDescriptors = [];
-    let faceMatcher = null;
-    let scanningMode = 'attendance'; // 'attendance' or 'enroll'
-    let enrollmentEmpId = null;
+    function renderPage(pageId) {
+      document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+      document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
+      qs(pageId).classList.add("active");
+      const btn = Array.from(document.querySelectorAll(".nav-btn")).find(b => b.dataset.page === pageId);
+      if (btn) btn.classList.add("active");
+
+      if (pageId === 'dashboard') renderDashboard();
+      else if (pageId === 'employees') renderEmployees();
+      else if (pageId === 'attendance') renderAttendance();
+      else if (pageId === 'salary') renderSalary();
+      else if (pageId === 'reports') renderReports();
+      else if (pageId === 'leave') renderLeave();
+      else if (pageId === 'profile') renderProfile();
+    }
 
     async function initApp() {
       await loadData();
