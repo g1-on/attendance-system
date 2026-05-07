@@ -66,8 +66,11 @@
     .bar { flex: 1; min-width: 50px; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 6px; }
     .bar-fill { width: 100%; border-radius: 8px 8px 0 0; background: linear-gradient(180deg, var(--purple), var(--indigo)); }
     .bar-label { font-size: 12px; color: var(--muted); text-align: center; }
-    .heatmap { display: grid; grid-template-columns: repeat(7, minmax(36px, 1fr)); gap: 8px; margin-top: 10px; }
-    .day-tile { background: #0d152b; border: 1px solid #2b3852; border-radius: 8px; min-height: 52px; font-size: 11px; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 3px; text-align: center; }
+    .heatmap { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; margin-top: 10px; }
+    .day-header { font-size: 11px; font-weight: bold; color: var(--muted); text-align: center; padding-bottom: 5px; }
+    .day-tile { background: #0d152b; border: 1px solid #2b3852; border-radius: 8px; min-height: 60px; font-size: 11px; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 3px; text-align: center; position: relative; }
+    .day-tile.sunday { border-color: var(--blue); background: rgba(59,130,246,0.1); }
+    .day-tile.empty { background: transparent; border: none; }
     .profile-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; margin-top: 20px; }
     .profile-card { background: var(--card); padding: 25px; border-radius: 12px; border: 1px solid var(--border); transition: transform 0.2s; position: relative; overflow: hidden; }
     .profile-card:hover { transform: translateY(-5px); border-color: var(--primary); }
@@ -566,9 +569,42 @@
       const totals = attendanceSummary(monthRows);
       qs("attendanceStats").innerHTML = [["Working Days", totals.working, "accent"], ["Avg Present", grouped.length ? (grouped.reduce((s, g) => s + g.present, 0) / grouped.length).toFixed(1) : 0, "good"], ["Avg Absent", grouped.length ? (grouped.reduce((s, g) => s + g.absent, 0) / grouped.length).toFixed(1) : 0, "bad"], ["Avg Late", grouped.length ? (grouped.reduce((s, g) => s + g.late, 0) / grouped.length).toFixed(1) : 0, "warn"]].map(x => `<div class="card"><h4>${x[0]}</h4><div class="stat-value ${x[2]}">${x[1]}</div></div>`).join("");
       qs("attendanceRegisterTable").innerHTML = `<thead><tr><th>Employee</th><th>Dept</th><th>Present</th><th>Absent</th><th>Leave</th><th>Late</th><th>OT Hours</th><th>Attendance %</th></tr></thead><tbody>${grouped.map(g => `<tr><td>${fullName(g.e)}</td><td>${g.e.department}</td><td>${g.present}</td><td>${g.absent}</td><td>${g.leave}</td><td>${g.late}</td><td>${g.ot.toFixed(1)}</td><td>${g.percent}%</td></tr>`).join("")}</tbody>`;
+      
+      const [year, monthNum] = month.split("-").map(Number);
+      const firstDay = new Date(year, monthNum - 1, 1).getDay();
+      const daysInMonth = new Date(year, monthNum, 0).getDate();
+      
+      const dayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      let heatmapHtml = dayLabels.map(d => `<div class="day-header">${d}</div>`).join("");
+      
+      // Empty tiles for previous month days
+      for (let i = 0; i < firstDay; i++) {
+        heatmapHtml += `<div class="day-tile empty"></div>`;
+      }
+      
       const heatRows = monthRows.filter(r => !empId || r.empId === empId), mapByDay = {};
-      heatRows.forEach(r => { const day = Number(r.date.slice(-2)); if (!mapByDay[day]) mapByDay[day] = { Present: 0, Absent: 0, Leave: 0, Holiday: 0, "Half Day": 0 }; mapByDay[day][r.status] = (mapByDay[day][r.status] || 0) + 1; });
-      qs("calendarHeatmap").innerHTML = Array.from({ length: 31 }, (_, i) => { const day = i + 1, x = mapByDay[day] || {}, top = Object.entries(x).sort((a, b) => b[1] - a[1])[0]; let cls = "", label = "-"; if (top) { label = top[0]; cls = `tile-${statusClass(top[0])}`; } return `<div class="day-tile ${cls}"><strong>${day}</strong><span>${label}</span></div>`; }).join("");
+      heatRows.forEach(r => { const d = Number(r.date.slice(-2)); if (!mapByDay[d]) mapByDay[d] = { Present: 0, Absent: 0, Leave: 0, Holiday: 0, "Half Day": 0 }; mapByDay[d][r.status] = (mapByDay[d][r.status] || 0) + 1; });
+      
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dateObj = new Date(year, monthNum - 1, day);
+        const isSunday = dateObj.getDay() === 0;
+        const x = mapByDay[day] || {};
+        const top = Object.entries(x).sort((a, b) => b[1] - a[1])[0];
+        
+        let cls = isSunday ? "sunday" : "";
+        let label = isSunday ? "OFF" : "-";
+        
+        if (top && top[1] > 0) {
+          label = top[0];
+          cls = `tile-${statusClass(top[0])}`;
+        } else if (isSunday) {
+          cls = "sunday tile-holiday";
+        }
+        
+        heatmapHtml += `<div class="day-tile ${cls}"><strong>${day}</strong><span>${label}</span></div>`;
+      }
+      
+      qs("calendarHeatmap").innerHTML = heatmapHtml;
     }
     async function markAttendance() {
       const empId = qs("markEmployee").value, date = qs("markDate").value, status = qs("markStatus").value;
