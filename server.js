@@ -8,8 +8,8 @@ const path = require('path');
 const app = express();
 const port = process.env.PORT || 5000;
 
-app.use(cors());
-app.use(bodyParser.json());
+app.use(cors({ limit: '50mb' }));
+app.use(bodyParser.json({ limit: '50mb' }));
 app.use(express.static(path.join(__dirname)));
 
 // API Endpoints
@@ -45,12 +45,24 @@ app.post('/api/login', async (req, res) => {
 });
 
 app.post('/api/employees', async (req, res) => {
-  const { id, firstName, lastName, department, designation, basicSalary, joinDate, email, phone, status, password, role } = req.body;
+  const { id, firstName, lastName, department, designation, basicSalary, joinDate, email, phone, status, password, role, image } = req.body;
   try {
     await db.query(`
-      INSERT INTO employees (id, firstname, lastname, department, designation, basicsalary, joindate, email, phone, status, password, role)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-    `, [id, firstName, lastName, department, designation, basicSalary, joinDate, email, phone, status, password || '123456', role || 'employee']);
+      INSERT INTO employees (id, firstname, lastname, department, designation, basicsalary, joindate, email, phone, status, password, role, image)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+    `, [id, firstName, lastName, department, designation, basicSalary, joinDate, email, phone, status, password || '123456', role || 'employee', image]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update Face Data
+app.put('/api/employees/:id/face', async (req, res) => {
+  const { id } = req.params;
+  const { faceDescriptor, image } = req.body;
+  try {
+    await db.query('UPDATE employees SET facedescriptor = $1, image = $2 WHERE id = $3', [faceDescriptor, image, id]);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -99,6 +111,7 @@ app.post('/api/attendance', async (req, res) => {
     `, [empId, date, status, checkIn, checkOut, ot]);
     res.json({ success: true });
   } catch (err) {
+    console.error('ATTENDANCE SAVE ERROR:', err.message);
     res.status(500).json({ error: err.message });
   }
 });

@@ -22,7 +22,9 @@ async function initDb() {
         phone TEXT,
         status TEXT DEFAULT 'Active',
         password TEXT DEFAULT '123456',
-        role TEXT DEFAULT 'employee'
+        role TEXT DEFAULT 'employee',
+        faceDescriptor TEXT,
+        image TEXT
       );
 
       CREATE TABLE IF NOT EXISTS attendance (
