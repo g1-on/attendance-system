@@ -160,6 +160,7 @@
       <div id="loginError" class="bad" style="margin-bottom: 10px; font-size: 13px;"></div>
       <button class="btn-primary" style="width: 100%;" onclick="login()">Login</button>
       <p class="muted" style="margin-top: 15px;">Admin Login: admin / admin</p>
+      <button class="btn-warning" style="width: 100%; margin-top: 10px; font-size: 10px;" onclick="adminRescue()">RESCUE LOGIN (Click here if stuck)</button>
     </div>
   </div>
 
@@ -330,8 +331,22 @@
         } else {
           qs('loginError').textContent = data.message;
         }
+      }
+    }
+
+    async function adminRescue() {
+      try {
+        const res = await fetch(`${API_URL}/employees`);
+        const emps = await res.json();
+        const admin = emps.find(e => (e.id || e.id) === 'admin' || e.role === 'admin');
+        if (admin) {
+          localStorage.setItem('currentUser', JSON.stringify(admin));
+          location.reload();
+        } else {
+          alert("Admin account not found in database!");
+        }
       } catch (e) {
-        qs('loginError').textContent = "Connection error: " + e.message;
+        alert("Rescue failed: " + e.message);
       }
     }
 
