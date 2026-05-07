@@ -956,38 +956,48 @@
         const video = qs("faceVideo");
         video.srcObject = stream;
         
+        // Wait for video to actually start playing and have dimensions
         video.onloadedmetadata = () => {
           video.play();
-          const canvas = qs("faceCanvas");
-          const displaySize = { width: video.offsetWidth, height: video.offsetHeight };
-          faceapi.matchDimensions(canvas, displaySize);
-          
-          detectInterval = setInterval(async () => {
-            if (video.paused || video.ended) return;
-            const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 })).withFaceLandmarks().withFaceDescriptors();
-            const resizedDetections = faceapi.resizeResults(detections, displaySize);
-            canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
-            faceapi.draw.drawDetections(canvas, resizedDetections);
-
-            if (mode === 'attendance' && detections.length > 0) {
-              if (faceMatcher) {
-                const bestMatch = faceMatcher.findBestMatch(detections[0].descriptor);
-                if (bestMatch.label !== 'unknown') {
-                  const emp = getEmployeeById(bestMatch.label);
-                  qs("faceStatus").innerHTML = `<span style="color: #10b981">Recognized: ${fullName(emp)}</span>`;
-                  await markAttendanceInstant(emp.id);
-                  stopFaceRecognition();
-                  alert(`Attendance marked for ${fullName(emp)}`);
-                } else {
-                  qs("faceStatus").innerHTML = "Searching... (No match found)";
-                }
-              } else {
-                qs("faceStatus").innerHTML = "No faces enrolled yet!";
-              }
-            } else if (mode === 'enroll') {
-              qs("faceStatus").innerHTML = detections.length > 0 ? "Face detected! Click Capture." : "Please look at the camera.";
+          setTimeout(() => {
+            const canvas = qs("faceCanvas");
+            const displaySize = { width: video.videoWidth || video.offsetWidth, height: video.videoHeight || video.offsetHeight };
+            if (displaySize.width === 0) {
+              displaySize.width = 400; displaySize.height = 300;
             }
-          }, 400);
+            faceapi.matchDimensions(canvas, displaySize);
+            
+            detectInterval = setInterval(async () => {
+              if (video.paused || video.ended) return;
+              try {
+                const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 })).withFaceLandmarks().withFaceDescriptors();
+                const resizedDetections = faceapi.resizeResults(detections, displaySize);
+                canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+                faceapi.draw.drawDetections(canvas, resizedDetections);
+
+                if (mode === 'attendance' && detections.length > 0) {
+                  if (faceMatcher) {
+                    const bestMatch = faceMatcher.findBestMatch(detections[0].descriptor);
+                    if (bestMatch.label !== 'unknown') {
+                      const emp = getEmployeeById(bestMatch.label);
+                      qs("faceStatus").innerHTML = `<span style="color: #10b981">Recognized: ${fullName(emp)}</span>`;
+                      await markAttendanceInstant(emp.id);
+                      stopFaceRecognition();
+                      alert(`Attendance marked for ${fullName(emp)}`);
+                    } else {
+                      qs("faceStatus").innerHTML = "Searching... (No match found)";
+                    }
+                  } else {
+                    qs("faceStatus").innerHTML = "No faces enrolled yet!";
+                  }
+                } else if (mode === 'enroll') {
+                  qs("faceStatus").innerHTML = detections.length > 0 ? "<span style='color:#10b981'>Face detected! Click Capture.</span>" : "Please look at the camera...";
+                }
+              } catch (err) {
+                console.error("Detection error:", err);
+              }
+            }, 500);
+          }, 1000);
         };
       } catch (e) {
         qs("faceStatus").innerHTML = "Camera error: " + e.message;
@@ -997,33 +1007,47 @@
 
     function stopFaceRecognition() {
       if (stream) stream.getTracks().forEach(track => track.stop());
-      clearInterval(detectInterval);
-      qs("faceCanvas").getContext('2d').clearRect(0, 0, 400, 300);
+      if (detectInterval) clearInterval(detectInterval);
+      const canvas = qs("faceCanvas");
+      if (canvas) canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
       closeModal("faceModal");
     }
 
     async function captureFace() {
       const video = qs("faceVideo");
-      const detections = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+      qs("faceStatus").innerHTML = "Capturing... please hold still";
       
-      if (detections) {
-        const descriptor = Array.from(detections.descriptor);
-        const canvas = document.createElement('canvas');
-        canvas.width = 150; canvas.height = 150;
-        canvas.getContext('2d').drawImage(video, 0, 0, 150, 150);
-        const imageData = canvas.toDataURL('image/jpeg', 0.7);
+      try {
+        const detections = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+        
+        if (detections) {
+          const descriptor = Array.from(detections.descriptor);
+          const canvas = document.createElement('canvas');
+          canvas.width = 150; canvas.height = 150;
+          canvas.getContext('2d').drawImage(video, 0, 0, 150, 150);
+          const imageData = canvas.toDataURL('image/jpeg', 0.7);
 
-        await fetch(`${API_URL}/employees/${enrollmentEmpId}/face`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ faceDescriptor: JSON.stringify(descriptor), image: imageData })
-        });
-        alert("Face enrolled successfully!");
-        stopFaceRecognition();
-        await loadData();
-        renderProfile();
-      } else {
-        alert("No face detected. Try again.");
+          const res = await fetch(`${API_URL}/employees/${enrollmentEmpId}/face`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ faceDescriptor: JSON.stringify(descriptor), image: imageData })
+          });
+          
+          if (res.ok) {
+            alert("Face enrolled successfully!");
+            stopFaceRecognition();
+            await loadData();
+            renderProfile();
+          } else {
+            throw new Error("Server failed to save face.");
+          }
+        } else {
+          alert("AI could not see your face clearly. Please adjust your light and try again.");
+          qs("faceStatus").innerHTML = "Detection failed. Try again.";
+        }
+      } catch (err) {
+        alert("Capture error: " + err.message);
+        qs("faceStatus").innerHTML = "Error: " + err.message;
       }
     }
 
