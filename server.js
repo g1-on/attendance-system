@@ -27,15 +27,19 @@ app.get('/api/employees', async (req, res) => {
 app.post('/api/login', async (req, res) => {
   const id = req.body.id ? req.body.id.trim() : '';
   const password = req.body.password;
+  console.log(`Login attempt for ID: [${id}]`);
   try {
     const result = await db.query('SELECT * FROM employees WHERE LOWER(id) = LOWER($1) AND password = $2', [id, password]);
     const user = result.rows[0];
     if (user) {
+      console.log('Login successful');
       res.json({ success: true, user });
     } else {
+      console.log('Login failed: User not found or password incorrect');
       res.status(401).json({ success: false, message: 'Invalid ID or Password' });
     }
   } catch (err) {
+    console.error('Login error:', err);
     res.status(500).json({ error: err.message });
   }
 });
