@@ -700,12 +700,13 @@
     }
     function renderHistory() {
       const isEmp = currentUser.role === 'employee';
+      const month = qs("salMonthFilter").value || currentMonth;
       const allHistory = [
         ...advances.map(a => ({ ...a, type: "Advance", color: "bad" })),
         ...expenses.map(e => ({ ...e, type: "Office Expense", color: "good" }))
-      ].filter(h => !isEmp || h.empId === currentUser.id)
+      ].filter(h => h.month === month && (!isEmp || h.empId === currentUser.id))
       .sort((a, b) => new Date(b.date) - new Date(a.date));
-      qs("historyTable").innerHTML = `<thead><tr><th>Date</th><th>Type</th><th>Employee</th><th>Amount</th><th>Reason</th>${isEmp ? '' : '<th>Action</th>'}</tr></thead><tbody>${allHistory.map(h => `<tr><td>${h.date}</td><td><span class="status ${h.type === 'Advance' ? 'late' : 'approved'}">${h.type}</span></td><td>${employeeNameById(h.empId)}</td><td><span class="${h.color}">${INR(h.amount)}</span></td><td style="white-space: normal; min-width: 200px;">${h.reason}</td>${isEmp ? '' : `<td><button class="btn-warning btn-icon" onclick="editHistory('${h.type}', '${h.id}')">Edit</button> <button class="btn-danger btn-icon" onclick="deleteHistory('${h.type}', '${h.id}')">Delete</button></td>`}</tr>`).join("") || '<tr><td colspan="6">No history found</td></tr>'}</tbody>`;
+      qs("historyTable").innerHTML = `<thead><tr><th>Date</th><th>Type</th><th>Employee</th><th>Amount</th><th>Reason</th>${isEmp ? '' : '<th>Action</th>'}</tr></thead><tbody>${allHistory.map(h => `<tr><td>${h.date}</td><td><span class="status ${h.type === 'Advance' ? 'late' : 'approved'}">${h.type}</span></td><td>${employeeNameById(h.empId)}</td><td><span class="${h.color}">${INR(h.amount)}</span></td><td style="white-space: normal; min-width: 200px;">${h.reason}</td>${isEmp ? '' : `<td><button class="btn-warning btn-icon" onclick="editHistory('${h.type}', '${h.id}')">Edit</button> <button class="btn-danger btn-icon" onclick="deleteHistory('${h.type}', '${h.id}')">Delete</button></td>`}</tr>`).join("") || '<tr><td colspan="6">No history found for this month</td></tr>'}</tbody>`;
     }
     function deleteHistory(type, id) {
       if (!confirm(`Are you sure you want to delete this ${type}?`)) return;
@@ -947,7 +948,7 @@
 
     ["calcBasic", "calcAdvance", "calcExpense"].forEach(id => qs(id).addEventListener("input", updateCalculator));
     ["attMonthFilter", "attEmployeeFilter"].forEach(id => qs(id).addEventListener("change", renderAttendance));
-    qs("salMonthFilter").addEventListener("change", renderSalary);
+    qs("salMonthFilter").addEventListener("change", () => { renderSalary(); renderHistory(); });
     qs("employeeSearch").addEventListener("input", renderEmployees);
     (async () => {
       startClock();
