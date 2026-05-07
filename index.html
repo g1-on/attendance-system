@@ -140,13 +140,9 @@
     
     /* Face Recognition UI */
     .face-container { position: relative; width: 100%; max-width: 400px; margin: 0 auto; border-radius: 12px; overflow: hidden; border: 2px solid var(--primary); background: #000; aspect-ratio: 4/3; }
-    #faceVideo { width: 100%; height: 100%; object-fit: cover; }
-    #faceCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
-    .face-overlay { position: absolute; bottom: 10px; left: 0; right: 0; text-align: center; color: white; background: rgba(0,0,0,0.5); padding: 5px; font-size: 12px; }
     .profile-img { width: 60px; height: 60px; border-radius: 50%; object-fit: cover; border: 2px solid var(--primary); margin-bottom: 10px; }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
 </head>
 <body>
   <div id="loginScreen" class="modal-backdrop" style="display: flex; background: var(--bg); z-index: 100;">
@@ -199,9 +195,6 @@
       </div>
       <div class="content">
         <section id="dashboard" class="page active">
-          <div class="toolbar" style="justify-content: flex-end;">
-            <button class="btn-primary" onclick="startFaceRecognition('attendance')" style="background: var(--purple);">AI Face Attendance</button>
-          </div>
           <div class="grid-4" id="dashboardStats"></div>
           <div class="grid-2">
             <div class="card"><h3>Recent Activities</h3><div class="table-wrap"><table id="todayAttendanceTable"></table></div></div>
@@ -209,7 +202,6 @@
           </div>
           <div class="card" id="pendingLeaveCard"><h3>Pending Leave Requests</h3><div class="table-wrap"><table id="pendingLeaveTable"></table></div></div>
         </section>
-        <!-- ... existing sections ... -->
         <section id="employees" class="page">
           <div class="toolbar"><input id="employeeSearch" placeholder="Search employee by name..." /><button class="btn-primary" onclick="openModal('employeeModal')">Add Employee</button></div>
           <div class="card"><div class="table-wrap"><table id="employeesTable"></table></div></div>
@@ -237,7 +229,6 @@
           </div>
         </div>
         <div id="profileContent" class="profile-grid">
-          <!-- Profiles will be rendered here -->
         </div>
       </section>
         <section id="payslips" class="page">
@@ -263,25 +254,6 @@
     </main>
   </div>
 
-  <!-- Face Recognition Modal -->
-  <div id="faceModal" class="modal-backdrop">
-    <div class="modal" style="max-width: 500px;">
-      <h2 id="faceModalTitle">Face Recognition</h2>
-      <div class="face-container">
-        <video id="faceVideo" autoplay muted playsinline></video>
-        <canvas id="faceCanvas"></canvas>
-        <div id="faceStatus" class="face-overlay">Initializing AI...</div>
-      </div>
-      <div style="margin-top: 15px; display: flex; justify-content: space-between; align-items: center;">
-        <button class="btn-warning btn-icon" onclick="startFaceRecognition(scanningMode, enrollmentEmpId)">🔄 Reset Camera</button>
-        <div id="faceEnrollmentUI" style="display: none;">
-          <button class="btn-primary" onclick="captureFace()" id="captureBtn">📸 Capture Face</button>
-        </div>
-        <button class="btn-danger" onclick="stopFaceRecognition()">Close</button>
-      </div>
-      <p id="faceHint" class="muted" style="margin-top: 10px; font-size: 11px; text-align: center;">Tip: Make sure you have enrolled your face in the Profile Directory first.</p>
-    </div>
-  </div>
   <div id="employeeModal" class="modal-backdrop"><div class="modal"><h3>Add Employee</h3><div class="form-grid"><input id="firstName" placeholder="First Name" /><input id="lastName" placeholder="Last Name" /><select id="department"><option>Development</option><option>HR</option><option>Finance</option><option>Sales</option></select><input id="designation" placeholder="Designation" /><input id="basicSalary" type="number" placeholder="Basic Salary" /><input id="joinDate" type="date" /><input id="email" type="email" placeholder="Email" /><input id="phone" placeholder="Phone" /></div><div class="toolbar"><button class="btn-success" onclick="addEmployee()">Save</button><button onclick="closeModal('employeeModal')">Close</button></div></div></div>
   <div id="attendanceModal" class="modal-backdrop"><div class="modal"><h3>Mark Attendance</h3><div class="form-grid"><select id="markEmployee"></select><input id="markDate" type="date" /><select id="markStatus"><option>Present</option><option>Absent</option><option>Leave</option><option>Half Day</option><option>Holiday</option></select><input id="markIn" type="time" /><input id="markOut" type="time" /><input id="markOt" type="number" step="0.5" placeholder="OT Hours" /></div><div class="toolbar"><button class="btn-success" onclick="markAttendance()">Save</button><button onclick="closeModal('attendanceModal')">Close</button></div></div></div>
   <div id="leaveModal" class="modal-backdrop"><div class="modal"><h3>Apply Leave</h3><div class="form-grid"><select id="leaveEmployee"></select><select id="leaveType"><option>Annual</option><option>Sick</option><option>Casual</option><option>Comp-Off</option></select><input id="leaveFrom" type="date" /><input id="leaveTo" type="date" /><textarea id="leaveReason" class="full" rows="3" placeholder="Reason"></textarea></div><div class="toolbar"><button class="btn-success" onclick="applyLeave()">Submit</button><button onclick="closeModal('leaveModal')">Close</button></div></div></div>
@@ -298,7 +270,6 @@
       ? 'http://localhost:5000/api' 
       : 'https://attendance-system-v2ht.onrender.com/api';
     
-    // If we are in a normal browser on your computer, use the local address
     if (!window.hasOwnProperty('Capacitor')) {
       if (window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168.')) {
         API_URL = `http://${window.location.hostname}:5000/api`;
@@ -308,10 +279,6 @@
     let currentUser = null;
     let employees = [], archivedEmployees = [], attendance = [], leaveRequests = [], advances = [], expenses = [], payroll = {}, archivedEmployeesList = [];
     let leaveBalances = { Annual: 12, Sick: 8, Casual: 6, "Comp-Off": 3 };
-    let labeledDescriptors = [];
-    let faceMatcher = null;
-    let scanningMode = 'attendance'; // 'attendance' or 'enroll'
-    let enrollmentEmpId = null;
 
     async function login() {
       const id = qs('loginId').value.trim();
@@ -359,7 +326,6 @@
 
     async function initApp() {
       await loadData();
-      await initFaceAPI();
       if (localStorage.getItem('currentUser')) {
         currentUser = JSON.parse(localStorage.getItem('currentUser'));
         const u = currentUser;
@@ -420,7 +386,6 @@
           payroll[empId] = { ...p, empId, basic: p.basic, gross: p.gross, advance: p.advance, expense: p.expense, totalDeductions: p.totaldeductions || p.totalDeductions, net: p.net, paymentStatus: p.paymentstatus || p.paymentStatus };
         });
 
-        updateLabeledDescriptors();
         populateDropdowns();
       } catch (e) {
         console.error("Data load error:", e);
@@ -458,7 +423,6 @@
         qs('markDate').value = today;
         const now = new Date();
         qs('markIn').value = now.toTimeString().slice(0, 5);
-        // Default checkout 8 hours later or just leave it blank
       } else if (id === 'leaveModal') {
         qs('leaveFrom').value = today;
         qs('leaveTo').value = today;
@@ -477,7 +441,7 @@
       btn.classList.add("active"); 
       document.querySelectorAll(".page").forEach(p => p.classList.remove("active")); 
       qs(btn.dataset.page).classList.add("active"); 
-      loadData(); // Auto-refresh data on every click
+      loadData(); 
     }));
 
     function startClock() { const tick = () => qs("clock").textContent = new Date().toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "medium" }); tick(); setInterval(tick, 1000); }
@@ -588,12 +552,10 @@
       const grouped = filteredEmployeesList.map(e => { const rows = monthRows.filter(r => r.empId === e.id); const s = attendanceSummary(rows); return { e, ...s }; });
       const totals = attendanceSummary(monthRows);
       qs("attendanceStats").innerHTML = [["Working Days", totals.working, "accent"], ["Avg Present", grouped.length ? (grouped.reduce((s, g) => s + g.present, 0) / grouped.length).toFixed(1) : 0, "good"], ["Avg Absent", grouped.length ? (grouped.reduce((s, g) => s + g.absent, 0) / grouped.length).toFixed(1) : 0, "bad"], ["Avg Late", grouped.length ? (grouped.reduce((s, g) => s + g.late, 0) / grouped.length).toFixed(1) : 0, "warn"]].map(x => `<div class="card"><h4>${x[0]}</h4><div class="stat-value ${x[2]}">${x[1]}</div></div>`).join("");
-      qs("attendanceRegisterTable").innerHTML = `<thead><tr><th>Employee</th><th>Dept</th><th>Face Proof</th><th>Present</th><th>Absent</th><th>Leave</th><th>Late</th><th>OT Hours</th><th>Attendance %</th></tr></thead><tbody>${grouped.map(g => {
-        const lastAtt = monthRows.filter(r => r.empId === g.e.id).sort((a,b) => b.date.localeCompare(a.date))[0];
+      qs("attendanceRegisterTable").innerHTML = `<thead><tr><th>Employee</th><th>Dept</th><th>Present</th><th>Absent</th><th>Leave</th><th>Late</th><th>OT Hours</th><th>Attendance %</th></tr></thead><tbody>${grouped.map(g => {
         return `<tr>
           <td>${fullName(g.e)}</td>
           <td>${g.e.department}</td>
-          <td>${lastAtt && lastAtt.image ? `<img src="${lastAtt.image}" style="width:40px; height:40px; border-radius:4px; object-fit:cover;">` : '-'}</td>
           <td>${g.present}</td>
           <td>${g.absent}</td>
           <td>${g.leave}</td>
@@ -610,7 +572,6 @@
       const dayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
       let heatmapHtml = dayLabels.map(d => `<div class="day-header">${d}</div>`).join("");
       
-      // Empty tiles for previous month days
       for (let i = 0; i < firstDay; i++) {
         heatmapHtml += `<div class="day-tile empty"></div>`;
       }
@@ -644,14 +605,11 @@
       if (!empId || !date) return alert("Employee and date are required.");
       const attRecord = { empId, date, status, checkIn: qs("markIn").value || "-", checkOut: qs("markOut").value || "-", ot: Number(qs("markOt").value || 0) };
       
-      console.log("Saving attendance:", attRecord);
       await saveData('/attendance', attRecord);
       closeModal("attendanceModal");
       
-      // Force a small delay to let the database settle, then reload
       setTimeout(async () => {
         await loadData();
-        console.log("Data reloaded after attendance save");
       }, 100);
     }
     function renderSalary() {
@@ -794,9 +752,6 @@
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
       };
       
-      // Temporary change background to white for PDF if needed, 
-      // but the user's UI is dark. Let's try keeping it dark first.
-      // If dark looks bad in PDF, we can force white.
       html2pdf().set(opt).from(element).save();
     }
     function renderLeave() {
@@ -902,221 +857,13 @@
           </div>
           ${isAdmin ? `
             <div style="margin-top: 15px; border-top: 1px solid #2d2d3d; padding-top: 15px;">
-              <button class="btn-primary btn-icon" onclick="startFaceRecognition('enroll', '${e.id}')">Enroll Face</button>
+              <p class="muted">Management Mode</p>
             </div>
           ` : ''}
         </div>
       `).join("");
     }
 
-    // FACE RECOGNITION LOGIC
-    async function initFaceAPI() {
-      const btn = document.querySelector('button[onclick*="startFaceRecognition"]');
-      if (btn) {
-        btn.disabled = true;
-        btn.innerHTML = "Loading AI...";
-      }
-
-      const MODEL_URL = 'https://vladmandic.github.io/face-api/model/';
-      try {
-        await Promise.all([
-          faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-          faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-          faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
-        ]);
-        console.log("Face API Models Loaded");
-        if (btn) {
-          btn.disabled = false;
-          btn.innerHTML = "AI Face Attendance";
-          btn.style.background = "var(--purple)";
-        }
-      } catch (e) {
-        console.error("Face API Load Error:", e);
-        if (btn) btn.innerHTML = "AI Error (Check Internet)";
-      }
-    }
-
-    function updateLabeledDescriptors() {
-      labeledDescriptors = [];
-      employees.forEach(e => {
-        if (e.facedescriptor) {
-          const descArr = JSON.parse(e.facedescriptor);
-          const Float32Desc = new Float32Array(descArr);
-          labeledDescriptors.push(new faceapi.LabeledFaceDescriptors(e.id, [Float32Desc]));
-        }
-      });
-      if (labeledDescriptors.length > 0) {
-        faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.6);
-      }
-    }
-
-    let stream = null;
-    let detectInterval = null;
-
-    async function startFaceRecognition(mode, empId = null) {
-      scanningMode = mode;
-      enrollmentEmpId = empId;
-      openModal("faceModal");
-      qs("faceModalTitle").innerHTML = mode === 'enroll' ? 'Enroll Employee Face' : 'AI Face Attendance';
-      qs("faceStatus").innerHTML = "Initializing Scanner...";
-      qs("faceEnrollmentUI").style.display = mode === 'enroll' ? 'block' : 'none';
-      qs("faceHint").style.display = mode === 'attendance' ? 'block' : 'none';
-
-      if (stream) stopFaceRecognition();
-
-      try {
-        qs("faceStatus").innerHTML = "Connecting Camera...";
-        
-        stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { width: 640, height: 480, facingMode: "user" } 
-        });
-        
-        const video = qs("faceVideo");
-        video.srcObject = stream;
-        
-        // Use a more reliable way to start video
-        await video.play();
-        qs("faceStatus").innerHTML = "AI Waking Up...";
-
-        const canvas = qs("faceCanvas");
-        const displaySize = { width: video.offsetWidth, height: video.offsetHeight };
-        faceapi.matchDimensions(canvas, displaySize);
-        
-        let greenBoxCount = 0;
-        detectInterval = setInterval(async () => {
-          if (!stream || video.paused || video.ended) return;
-          
-          try {
-            const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.5 })).withFaceLandmarks().withFaceDescriptors();
-            const resizedDetections = faceapi.resizeResults(detections, displaySize);
-            const ctx = canvas.getContext('2d');
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            if (detections.length > 0) {
-              const det = resizedDetections[0].detection;
-              const box = det.box;
-              const centerX = box.x + box.width / 2;
-              const centerY = box.y + box.height / 2;
-              
-              const isCentered = centerX > displaySize.width * 0.2 && centerX < displaySize.width * 0.8 && centerY > displaySize.height * 0.2 && centerY < displaySize.height * 0.8;
-              const isGoodSize = box.width > displaySize.width * 0.25;
-              const isIdeal = isCentered && isGoodSize;
-              
-              ctx.strokeStyle = isIdeal ? '#22c55e' : '#ef4444';
-              ctx.lineWidth = 3;
-              ctx.strokeRect(box.x, box.y, box.width, box.height);
-
-              if (mode === 'attendance') {
-                if (faceMatcher) {
-                  const bestMatch = faceMatcher.findBestMatch(detections[0].descriptor);
-                  if (bestMatch.label !== 'unknown') {
-                    const emp = getEmployeeById(bestMatch.label);
-                    qs("faceStatus").innerHTML = `<div style="background: #22c55e; color: white; padding: 10px; border-radius: 8px; font-weight: bold;">ACCESS GRANTED: ${fullName(emp).toUpperCase()}</div>`;
-                    
-                    // Capture Proof
-                    const tempCanvas = document.createElement('canvas');
-                    tempCanvas.width = 150; tempCanvas.height = 150;
-                    tempCanvas.getContext('2d').drawImage(video, 0, 0, 150, 150);
-                    const proofImg = tempCanvas.toDataURL('image/jpeg', 0.6);
-                    
-                    await markAttendanceInstant(emp.id, proofImg);
-                    clearInterval(detectInterval); // Stop immediately
-                    setTimeout(() => stopFaceRecognition(), 1500);
-                  } else {
-                    qs("faceStatus").innerHTML = "Searching Database...";
-                  }
-                } else {
-                  qs("faceStatus").innerHTML = "Loading AI Matcher...";
-                  updateLabeledDescriptors();
-                }
-              } else if (mode === 'enroll') {
-                if (isIdeal) {
-                  greenBoxCount++;
-                  qs("faceStatus").innerHTML = `<span style='color:#22c55e; font-size: 1.2em;'>Perfect! Holding... ${3 - Math.floor(greenBoxCount/2)}</span>`;
-                  if (greenBoxCount > 6) {
-                    qs("faceStatus").innerHTML = "SAVING FACE...";
-                    greenBoxCount = 0;
-                    await captureFace(false);
-                  }
-                } else {
-                  greenBoxCount = 0;
-                  qs("faceStatus").innerHTML = "Center your face in the box";
-                }
-              }
-            } else {
-              greenBoxCount = 0;
-              qs("faceStatus").innerHTML = mode === 'enroll' ? "Position face in box" : "Scan your face to mark attendance";
-            }
-          } catch (err) {
-            console.warn("AI Loop Error:", err);
-          }
-        }, 300); // Super fast 300ms loop
-      } catch (e) {
-        qs("faceStatus").innerHTML = `<span style="color: #ef4444">Camera Error: ${e.message}</span>`;
-        console.error("Camera Error:", e);
-      }
-    }
-
-    function stopFaceRecognition() {
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-        stream = null;
-      }
-      if (detectInterval) {
-        clearInterval(detectInterval);
-        detectInterval = null;
-      }
-      const canvas = qs("faceCanvas");
-      if (canvas) canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
-      closeModal("faceModal");
-    }
-
-    async function captureFace(force = false) {
-      const video = qs("faceVideo");
-      qs("faceStatus").innerHTML = "Processing...";
-      
-      try {
-        let descriptor = null;
-        if (!force) {
-          const detections = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 224 })).withFaceLandmarks().withFaceDescriptor();
-          if (detections) descriptor = Array.from(detections.descriptor);
-        }
-
-        const canvas = document.createElement('canvas');
-        canvas.width = 300; canvas.height = 300;
-        canvas.getContext('2d').drawImage(video, 0, 0, 300, 300);
-        const imageData = canvas.toDataURL('image/jpeg', 0.8);
-
-        if (!descriptor && !force) {
-          if (confirm("AI is still analyzing. Save photo anyway? (You may need to re-enroll for AI attendance later)")) {
-            return captureFace(true);
-          }
-          qs("faceStatus").innerHTML = "Waiting for AI...";
-          return;
-        }
-
-        const res = await fetch(`${API_URL}/employees/${enrollmentEmpId}/face`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ faceDescriptor: descriptor ? JSON.stringify(descriptor) : null, image: imageData })
-        });
-        
-        if (res.ok) {
-          alert("Face saved successfully!");
-          stopFaceRecognition();
-          await loadData();
-          renderProfile();
-        }
-      } catch (err) {
-        alert("Save failed: " + err.message);
-      }
-    }
-
-    async function markAttendanceInstant(empId, imageData = null) {
-      const att = { empId, date: today, status: "Present", checkIn: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }), checkOut: "-", ot: 0, image: imageData };
-      await saveData('/attendance', att);
-      await loadData();
-    }
 
     function renderAll() { renderDashboard(); renderEmployees(); renderAttendance(); renderSalary(); renderLeave(); renderReports(); renderHistory(); generatePayslip(); renderProfile(); }
     
