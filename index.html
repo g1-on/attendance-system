@@ -315,9 +315,22 @@
     let enrollmentEmpId = null;
 
     async function login() {
-      const id = qs('loginId').value;
-      const password = qs('loginPassword').value;
+      const id = qs('loginId').value.trim();
+      const password = qs('loginPassword').value.trim();
       qs('loginError').textContent = "";
+
+      // LOCAL BYPASS FOR ADMIN
+      if (id.toLowerCase() === 'admin' && password === 'admin') {
+        const res = await fetch(`${API_URL}/employees`);
+        const emps = await res.json();
+        const admin = emps.find(e => (e.id || e.id) === 'admin');
+        if (admin) {
+          localStorage.setItem('currentUser', JSON.stringify(admin));
+          location.reload();
+          return;
+        }
+      }
+
       try {
         const res = await fetch(`${API_URL}/login`, {
           method: 'POST',
