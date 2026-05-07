@@ -213,7 +213,7 @@
           <div class="card"><h3>Monthly Calendar Heatmap</h3><div id="calendarHeatmap" class="heatmap"></div></div>
         </section>
         <section id="salary" class="page">
-          <div class="toolbar"><button class="btn-success" onclick="runPayroll()">Run Payroll</button><button class="btn-warning" onclick="openModal('advanceModal')">Record Advance</button><button class="btn-primary" onclick="openModal('officeExpenseModal')">Record Office Expense</button></div>
+          <div class="toolbar"><select id="salMonthFilter"></select><button class="btn-success" onclick="runPayroll()">Run Payroll</button><button class="btn-warning" onclick="openModal('advanceModal')">Record Advance</button><button class="btn-primary" onclick="openModal('officeExpenseModal')">Record Office Expense</button></div>
           <div class="card"><h3>Main Salary Table</h3><div class="table-wrap"><table id="salaryTable"></table></div></div>
           <div class="card"><h3>Advance & Expense History</h3><div class="table-wrap"><table id="historyTable"></table></div></div>
           <div class="grid-2">
@@ -666,29 +666,36 @@
     }
     function renderSalary() {
       const isEmp = currentUser.role === 'employee';
+      const month = qs("salMonthFilter").value || currentMonth;
       const filteredEmployeesList = isEmp ? [currentUser] : employees;
       
       qs("salaryTable").innerHTML = `<thead><tr><th>Employee</th><th>Basic Salary</th><th>Office Expense (Add)</th><th>Advance Deduction</th><th>Net Salary</th><th>Status</th>${isEmp ? '' : '<th>Action</th>'}</tr></thead><tbody>${filteredEmployeesList.map(e => { 
-        const p = payroll[e.id] || salaryComponents(e.basicSalary, 0, 0); 
+        // Get month-specific data
+        const advanceTotal = getAdvanceTotalForEmpMonth(e.id, month);
+        const expenseTotal = getExpenseTotalForEmpMonth(e.id, month);
+        const p = payroll[`${e.id}_${month}`] || payroll[e.id] || salaryComponents(e.basicSalary, advanceTotal, expenseTotal); 
         const status = p.paymentStatus || "Pending"; 
         return `<tr>
           <td>${fullName(e)}</td>
-          <td>${INR(p.basic)}</td>
-          <td class="good">${INR(p.expense || 0)}</td>
-          <td class="bad">${INR(p.advance || 0)}</td>
-          <td class="good">${INR(p.net)}</td>
+          <td>${INR(p.basic || e.basicSalary)}</td>
+          <td class="good">${INR(expenseTotal)}</td>
+          <td class="bad">${INR(advanceTotal)}</td>
+          <td class="good">${INR(p.net || (e.basicSalary + expenseTotal - advanceTotal))}</td>
           <td><span class="status ${statusClass(status)}">${status}</span></td>
-          ${isEmp ? '' : `<td><button class="${status === 'Paid' ? 'btn-warning' : 'btn-success'} btn-icon" onclick="togglePaymentStatus('${e.id}')">${status === 'Paid' ? 'Pending' : 'Paid'}</button></td>`}
+          ${isEmp ? '' : `<td><button class="${status === 'Paid' ? 'btn-warning' : 'btn-success'} btn-icon" onclick="togglePaymentStatus('${e.id}', '${month}')">${status === 'Paid' ? 'Pending' : 'Paid'}</button></td>`}
         </tr>`; 
       }).join("")}</tbody>`;
     }
-    async function togglePaymentStatus(empId) {
-      if (!payroll[empId]) {
+    async function togglePaymentStatus(empId, month) {
+      const key = `${empId}_${month}`;
+      if (!payroll[key]) {
         const e = getEmployeeById(empId);
-        payroll[empId] = calculatePayrollForEmployee(e, currentMonth, "Pending");
+        const advanceTotal = getAdvanceTotalForEmpMonth(empId, month);
+        const expenseTotal = getExpenseTotalForEmpMonth(empId, month);
+        payroll[key] = { ...salaryComponents(e.basicSalary, advanceTotal, expenseTotal), paymentStatus: "Pending" };
       }
-      payroll[empId].paymentStatus = payroll[empId].paymentStatus === "Paid" ? "Pending" : "Paid";
-      await saveData('/payroll', { ...payroll[empId], empId, month: currentMonth });
+      payroll[key].paymentStatus = payroll[key].paymentStatus === "Paid" ? "Pending" : "Paid";
+      await saveData('/payroll', { ...payroll[key], empId, month, paymentStatus: payroll[key].paymentStatus });
       renderSalary();
     }
     function renderHistory() {
@@ -866,7 +873,12 @@
       }
 
       const monthOptions = Array.from({ length: 12 }, (_, i) => { const val = `2026-${String(i + 1).padStart(2, "0")}`; return `<option value="${val}" ${val === currentMonth ? "selected" : ""}>${months[i]} 2026</option>`; }).join("");
-      qs("attMonthFilter").innerHTML = monthOptions; qs("payslipMonth").innerHTML = monthOptions; qs("attMonthFilter").value = currentMonth; qs("payslipMonth").value = currentMonth;
+      qs("attMonthFilter").innerHTML = monthOptions; 
+      qs("salMonthFilter").innerHTML = monthOptions;
+      qs("payslipMonth").innerHTML = monthOptions; 
+      qs("attMonthFilter").value = currentMonth; 
+      qs("salMonthFilter").value = currentMonth;
+      qs("payslipMonth").value = currentMonth;
       
       if (!isEmp) {
         qs("advMonth").innerHTML = monthOptions;
@@ -935,6 +947,7 @@
 
     ["calcBasic", "calcAdvance", "calcExpense"].forEach(id => qs(id).addEventListener("input", updateCalculator));
     ["attMonthFilter", "attEmployeeFilter"].forEach(id => qs(id).addEventListener("change", renderAttendance));
+    qs("salMonthFilter").addEventListener("change", renderSalary);
     qs("employeeSearch").addEventListener("input", renderEmployees);
     (async () => {
       startClock();
