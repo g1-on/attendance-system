@@ -315,7 +315,7 @@
 
     async function login() {
       const id = qs('loginId').value;
-      const password = qs('loginPass').value;
+      const password = qs('loginPassword').value;
       qs('loginError').textContent = "";
       try {
         const res = await fetch(`${API_URL}/login`, {
