@@ -39,12 +39,13 @@ app.get('/api/employees', async (req, res) => {
 
 app.post('/api/login', async (req, res) => {
   const id = req.body.id ? req.body.id.trim() : '';
-  const password = req.body.password;
+  const password = req.body.password ? req.body.password.trim() : '';
   console.log(`Login attempt for ID: [${id}]`);
   try {
-    const result = await db.query('SELECT * FROM employees WHERE LOWER(id) = LOWER($1) AND password = $2', [id, password]);
+    const result = await db.query('SELECT * FROM employees WHERE LOWER(id) = LOWER($1)', [id]);
     const user = result.rows[0];
-    if (user) {
+    
+    if (user && user.password === password) {
       console.log('Login successful');
       res.json({ success: true, user });
     } else {
