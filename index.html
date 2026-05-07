@@ -522,13 +522,25 @@
     async function toggleEmployeeStatus(empId) {
       const e = getEmployeeById(empId);
       if (!e) return;
-      const newStatus = e.status === 'Active' ? 'Probation' : 'Active';
+      const newStatus = (e.status === 'Active' || e.status === 'active') ? 'Probation' : 'Active';
       await fetch(`${API_URL}/employees/${empId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus })
       });
       await loadData();
+      renderAll();
+    }
+    function openDeleteModal(empId) {
+      if (confirm(`Are you sure you want to delete/archive employee ${empId}?`)) {
+        deleteEmployee(empId);
+      }
+    }
+    async function deleteEmployee(empId) {
+      await fetch(`${API_URL}/employees/${empId}`, { method: 'DELETE' });
+      await loadData();
+      renderAll();
+      alert("Employee archived successfully.");
     }
     async function addEmployee() {
       const id = `EMP${String(employees.length + archivedEmployees.length + 1).padStart(3, "0")}`;
