@@ -265,20 +265,21 @@
 
   <!-- Face Recognition Modal -->
   <div id="faceModal" class="modal">
-    <div class="modal-content">
+    <div class="modal-content" style="max-width: 500px;">
       <h2 id="faceModalTitle">Face Recognition</h2>
       <div class="face-container">
         <video id="faceVideo" autoplay muted playsinline></video>
         <canvas id="faceCanvas"></canvas>
         <div id="faceStatus" class="face-overlay">Initializing AI...</div>
       </div>
-      <div id="faceEnrollmentUI" style="display: none; margin-top: 15px;">
-        <p class="muted">Align your face in the center and click capture.</p>
-        <button class="btn-primary" onclick="captureFace()" id="captureBtn">Capture Face</button>
-      </div>
-      <div style="margin-top: 15px; text-align: right;">
+      <div style="margin-top: 15px; display: flex; justify-content: space-between; align-items: center;">
+        <button class="btn-warning btn-icon" onclick="startFaceRecognition(scanningMode, enrollmentEmpId)">🔄 Reset Camera</button>
+        <div id="faceEnrollmentUI" style="display: none;">
+          <button class="btn-primary" onclick="captureFace()" id="captureBtn">📸 Capture Face</button>
+        </div>
         <button class="btn-danger" onclick="stopFaceRecognition()">Close</button>
       </div>
+      <p id="faceHint" class="muted" style="margin-top: 10px; font-size: 11px; text-align: center;">Tip: Make sure you have enrolled your face in the Profile Directory first.</p>
     </div>
   </div>
   <div id="employeeModal" class="modal-backdrop"><div class="modal"><h3>Add Employee</h3><div class="form-grid"><input id="firstName" placeholder="First Name" /><input id="lastName" placeholder="Last Name" /><select id="department"><option>Development</option><option>HR</option><option>Finance</option><option>Sales</option></select><input id="designation" placeholder="Designation" /><input id="basicSalary" type="number" placeholder="Basic Salary" /><input id="joinDate" type="date" /><input id="email" type="email" placeholder="Email" /><input id="phone" placeholder="Phone" /></div><div class="toolbar"><button class="btn-success" onclick="addEmployee()">Save</button><button onclick="closeModal('employeeModal')">Close</button></div></div></div>
@@ -945,41 +946,51 @@
       qs("faceModalTitle").innerHTML = mode === 'enroll' ? 'Enroll Employee Face' : 'AI Face Attendance';
       qs("faceStatus").innerHTML = "Starting camera...";
       qs("faceEnrollmentUI").style.display = mode === 'enroll' ? 'block' : 'none';
+      qs("faceHint").style.display = mode === 'attendance' ? 'block' : 'none';
+
+      if (stream) stopFaceRecognition();
 
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: {} });
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
         const video = qs("faceVideo");
         video.srcObject = stream;
         
-        video.onplay = () => {
+        video.onloadedmetadata = () => {
+          video.play();
           const canvas = qs("faceCanvas");
           const displaySize = { width: video.offsetWidth, height: video.offsetHeight };
           faceapi.matchDimensions(canvas, displaySize);
           
           detectInterval = setInterval(async () => {
+            if (video.paused || video.ended) return;
             const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 })).withFaceLandmarks().withFaceDescriptors();
             const resizedDetections = faceapi.resizeResults(detections, displaySize);
             canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
             faceapi.draw.drawDetections(canvas, resizedDetections);
 
-            if (mode === 'attendance' && detections.length > 0 && faceMatcher) {
-              const bestMatch = faceMatcher.findBestMatch(detections[0].descriptor);
-              if (bestMatch.label !== 'unknown') {
-                const emp = getEmployeeById(bestMatch.label);
-                qs("faceStatus").innerHTML = `<span style="color: #10b981">Recognized: ${fullName(emp)}</span>`;
-                await markAttendanceInstant(emp.id);
-                stopFaceRecognition();
-                alert(`Attendance marked for ${fullName(emp)}`);
+            if (mode === 'attendance' && detections.length > 0) {
+              if (faceMatcher) {
+                const bestMatch = faceMatcher.findBestMatch(detections[0].descriptor);
+                if (bestMatch.label !== 'unknown') {
+                  const emp = getEmployeeById(bestMatch.label);
+                  qs("faceStatus").innerHTML = `<span style="color: #10b981">Recognized: ${fullName(emp)}</span>`;
+                  await markAttendanceInstant(emp.id);
+                  stopFaceRecognition();
+                  alert(`Attendance marked for ${fullName(emp)}`);
+                } else {
+                  qs("faceStatus").innerHTML = "Searching... (No match found)";
+                }
               } else {
-                qs("faceStatus").innerHTML = "Searching for match...";
+                qs("faceStatus").innerHTML = "No faces enrolled yet!";
               }
             } else if (mode === 'enroll') {
               qs("faceStatus").innerHTML = detections.length > 0 ? "Face detected! Click Capture." : "Please look at the camera.";
             }
-          }, 300);
+          }, 400);
         };
       } catch (e) {
-        qs("faceStatus").innerHTML = "Camera access denied.";
+        qs("faceStatus").innerHTML = "Camera error: " + e.message;
+        console.error("Camera Error:", e);
       }
     }
 
