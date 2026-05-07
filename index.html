@@ -260,7 +260,9 @@
     const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     const today = new Date().toISOString().slice(0, 10);
     const currentMonth = new Date().toISOString().slice(0, 7);
-    let API_URL = 'https://6914-2401-4900-1c60-698d-49de-9bc8-f13c-30.ngrok-free.app/api';
+    const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+      ? 'http://localhost:5000/api' 
+      : 'https://attendance-system-v2ht.onrender.com/api';
     
     // If we are in a normal browser on your computer, use the local address
     if (!window.hasOwnProperty('Capacitor')) {
