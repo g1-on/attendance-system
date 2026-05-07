@@ -1000,6 +1000,20 @@
       }
     }
 
+    function stopFaceRecognition() {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        stream = null;
+      }
+      if (detectInterval) {
+        clearInterval(detectInterval);
+        detectInterval = null;
+      }
+      const canvas = qs("faceCanvas");
+      if (canvas) canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+      closeModal("faceModal");
+    }
+
     async function captureFace(force = false) {
       const video = qs("faceVideo");
       qs("faceStatus").innerHTML = "Processing...";
