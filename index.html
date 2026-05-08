@@ -267,14 +267,12 @@
     const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     const today = new Date().toISOString().slice(0, 10);
     const currentMonth = new Date().toISOString().slice(0, 7);
-    const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
-      ? 'http://localhost:5000/api' 
-      : 'https://attendance-system-v2ht.onrender.com/api';
+    let API_URL = 'https://attendance-system-v2ht.onrender.com/api';
     
-    if (!window.hasOwnProperty('Capacitor')) {
-      if (window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168.')) {
-        API_URL = `http://${window.location.hostname}:5000/api`;
-      }
+    // Only use local API if we are explicitly on a dev port (e.g. browser testing)
+    // In the Capacitor APK, window.location.port is empty, so it will default to Onrender.
+    if (window.location.port === '5000' || window.location.port === '3000' || window.location.port === '5500') {
+      API_URL = `http://${window.location.hostname}:5000/api`;
     }
 
     let currentUser = null;
@@ -592,7 +590,7 @@
       renderAll();
     }
     function attendanceSummary(rows) {
-      const present = rows.filter(r => r.status === "Present").length, absent = rows.filter(r => r.status === "Absent").length, leave = rows.filter(r => r.status === "Leave").length, late = rows.filter(r => r.status === "Present" && r.checkIn !== "-" && r.checkIn > "09:45").length, ot = rows.reduce((s, r) => s + Number(r.ot || 0), 0), working = present + absent + leave + rows.filter(r => r.status === "Half Day").length, percent = working ? ((present / working) * 100).toFixed(1) : "0.0";
+      const present = rows.filter(r => r.status === "Present").length, absent = rows.filter(r => r.status === "Absent").length, leave = rows.filter(r => r.status === "Leave").length, late = rows.filter(r => r.status === "Present" && r.checkIn !== "-" && r.checkIn > "10:30").length, ot = rows.reduce((s, r) => s + Number(r.ot || 0), 0), working = present + absent + leave + rows.filter(r => r.status === "Half Day").length, percent = working ? ((present / working) * 100).toFixed(1) : "0.0";
       return { present, absent, leave, late, ot, working, percent };
     }
     function renderAttendance() {
